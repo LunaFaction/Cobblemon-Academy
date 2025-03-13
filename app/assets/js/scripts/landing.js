@@ -607,6 +607,15 @@ async function dlAsync(login = true) {
         try {
             // Build Minecraft process.
             proc = pb.build()
+            const launchButton = document.getElementById('launch_button')
+            launchButton.disabled = true  // Désactive le bouton tant que le jeu n'est pas complètement ouvert
+            launchButton.innerText = 'Jeu en cours...'
+            
+            // Une fois que Minecraft est ouvert, on réactive le bouton
+            proc.on('close', () => {
+                launchButton.disabled = false
+                launchButton.innerText = 'Jouer'
+            })
 
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)
