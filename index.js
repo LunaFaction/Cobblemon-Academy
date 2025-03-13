@@ -348,8 +348,13 @@ function getPlatformIcon(filename){
     return path.join(__dirname, 'app', 'assets', 'images', `${filename}.${ext}`)
 }
 
-app.on('ready', createWindow)
-app.on('ready', createMenu)
+app.on('ready', () => {
+    createWindow();
+    createMenu();
+
+    console.log('Vérification des mises à jour...');
+    autoUpdater.checkForUpdatesAndNotify();
+});
 
 app.on('window-all-closed', () => {
     // On macOS it is common for applications and their menu bar
