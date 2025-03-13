@@ -1,38 +1,40 @@
-name: Build
+name: Build and Release
 
-on: push
+on:
+  push:
+    branches:
+      - main  # Exécuter l'action uniquement sur la branche principale
 
 jobs:
-  release:
+  build:
     runs-on: ${{ matrix.os }}
 
     permissions:
-      contents: write
+      contents: write  # Autoriser la création de releases
 
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      - name: Check out Git repository
+      - name: Check out repository
         uses: actions/checkout@v3
 
-      - name: Set up Node
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: npm  # Cache les dépendances pour accélérer la build
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.x
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
-        shell: bash
 
-      - name: Build
+      - name: Build Electron app
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: npm run dist
-        shell: bash
