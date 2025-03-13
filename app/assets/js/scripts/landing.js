@@ -101,13 +101,20 @@ function setLaunchEnabled(val){
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
     loggerLanding.info('Launching game..')
+
+    const launchButton = document.getElementById('launch_button')
+
+    // Désactive le bouton et change son texte temporairement
+    launchButton.disabled = true
+    launchButton.innerText = 'Chargement...'
+
     try {
         const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
         const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer())
+
         if(jExe == null){
             await asyncSystemScan(server.effectiveJavaOptions)
         } else {
-
             setLaunchDetails(Lang.queryJS('landing.launch.pleaseWait'))
             toggleLaunchArea(true)
             setLaunchPercentage(0, 100)
@@ -116,16 +123,25 @@ document.getElementById('launch_button').addEventListener('click', async e => {
             if(details != null){
                 loggerLanding.info('Jvm Details', details)
                 await dlAsync()
-
             } else {
                 await asyncSystemScan(server.effectiveJavaOptions)
             }
         }
+
+        // Quand le jeu est bien lancé, on réactive le bouton et remet le texte normal
+        launchButton.disabled = false
+        launchButton.innerText = 'Jouer'
+
     } catch(err) {
         loggerLanding.error('Unhandled error in during launch process.', err)
         showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'))
+
+        // Réactive le bouton si une erreur survient
+        launchButton.disabled = false
+        launchButton.innerText = 'Jouer'
     }
 })
+
 
 // Bind settings button
 document.getElementById('settingsMediaButton').onclick = async e => {
