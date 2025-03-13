@@ -1,99 +1,93 @@
-const remoteMain = require('@electron/remote/main');
-remoteMain.initialize();
+const remoteMain = require('@electron/remote/main')
+remoteMain.initialize()
 
 // Requirements
-const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
-const { autoUpdater } = require('electron-updater');
-const ejse = require('ejs-electron');
-const fs = require('fs');
-const isDev = require('./app/assets/js/isdev');
-const path = require('path');
-const semver = require('semver');
-const { pathToFileURL } = require('url');
-const {
-    AZURE_CLIENT_ID,
-    MSFT_OPCODE,
-    MSFT_REPLY_TYPE,
-    MSFT_ERROR,
-    SHELL_OPCODE
-} = require('./app/assets/js/ipcconstants');
-const LangLoader = require('./app/assets/js/langloader');
+const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron')
+const autoUpdater                       = require('electron-updater').autoUpdater
+const ejse                              = require('ejs-electron')
+const fs                                = require('fs')
+const isDev                             = require('./app/assets/js/isdev')
+const path                              = require('path')
+const semver                            = require('semver')
+const { pathToFileURL }                 = require('url')
+const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE } = require('./app/assets/js/ipcconstants')
+const LangLoader                        = require('./app/assets/js/langloader')
 
 // Setup Lang
-LangLoader.setupLanguage();
+LangLoader.setupLanguage()
 
 // Setup auto updater.
-function initAutoUpdater() {
-    autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+function initAutoUpdater(event, data) {
 
-    if (isDev) {
-        autoUpdater.autoInstallOnAppQuit = false;
-        autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
+    if(data){
+        autoUpdater.allowPrerelease = true
+    } else {
+        // Defaults to true if application version contains prerelease components (e.g. 0.12.1-alpha.1)
+        // autoUpdater.allowPrerelease = true
     }
-
-    if (process.platform === 'darwin') {
-        autoUpdater.autoDownload = false;
+    
+    if(isDev){
+        autoUpdater.autoInstallOnAppQuit = false
+        autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml')
     }
-
-    autoUpdater.on('checking-for-update', () => {
-        console.log('Vérification des mises à jour...');
-    });
-
+    if(process.platform === 'darwin'){
+        autoUpdater.autoDownload = false
+    }
     autoUpdater.on('update-available', (info) => {
-        console.log(`Mise à jour disponible : ${info.version}`);
-        dialog.showMessageBox({
-            type: 'info',
-            title: 'Mise à jour disponible',
-            message: `Une nouvelle version (${info.version}) est disponible. Téléchargement en cours...`,
-        });
-    });
-
-    autoUpdater.on('update-not-available', () => {
-        console.log('Aucune mise à jour disponible.');
-    });
-
+        event.sender.send('autoUpdateNotification', 'update-available', info)
+    })
+    autoUpdater.on('update-downloaded', (info) => {
+        event.sender.send('autoUpdateNotification', 'update-downloaded', info)
+    })
+    autoUpdater.on('update-not-available', (info) => {
+        event.sender.send('autoUpdateNotification', 'update-not-available', info)
+    })
+    autoUpdater.on('checking-for-update', () => {
+        event.sender.send('autoUpdateNotification', 'checking-for-update')
+    })
     autoUpdater.on('error', (err) => {
-        console.error('Erreur de mise à jour :', err);
-    });
-
-    autoUpdater.on('update-downloaded', () => {
-        dialog.showMessageBox({
-            type: 'info',
-            title: 'Mise à jour prête',
-            message: 'Mise à jour téléchargée. L’application va redémarrer pour l’installer.',
-        }).then(() => {
-            autoUpdater.quitAndInstall();
-        });
-    });
+        event.sender.send('autoUpdateNotification', 'realerror', err)
+    }) 
 }
 
 // Open channel to listen for update actions.
-ipcMain.on('autoUpdateAction', (event, arg) => {
-    switch (arg) {
+ipcMain.on('autoUpdateAction', (event, arg, data) => {
+    switch(arg){
         case 'initAutoUpdater':
-            console.log('Initializing auto updater.');
-            initAutoUpdater();
-            event.sender.send('autoUpdateNotification', 'ready');
-            break;
+            console.log('Initializing auto updater.')
+            initAutoUpdater(event, data)
+            event.sender.send('autoUpdateNotification', 'ready')
+            break
         case 'checkForUpdate':
-            autoUpdater.checkForUpdates().catch(err => {
-                event.sender.send('autoUpdateNotification', 'realerror', err);
-            });
-            break;
+            autoUpdater.checkForUpdates()
+                .catch(err => {
+                    event.sender.send('autoUpdateNotification', 'realerror', err)
+                })
+            break
+        case 'allowPrereleaseChange':
+            if(!data){
+                const preRelComp = semver.prerelease(app.getVersion())
+                if(preRelComp != null && preRelComp.length > 0){
+                    autoUpdater.allowPrerelease = true
+                } else {
+                    autoUpdater.allowPrerelease = data
+                }
+            } else {
+                autoUpdater.allowPrerelease = data
+            }
+            break
         case 'installUpdateNow':
-            autoUpdater.quitAndInstall();
-            break;
+            autoUpdater.quitAndInstall()
+            break
         default:
-            console.log('Unknown argument', arg);
-            break;
+            console.log('Unknown argument', arg)
+            break
     }
-});
-
+})
 // Redirect distribution index event from preloader to renderer.
 ipcMain.on('distributionIndexDone', (event, res) => {
-    event.sender.send('distributionIndexDone', res);
-});
+    event.sender.send('distributionIndexDone', res)
+})
 
 // Handle trash item.
 ipcMain.handle(SHELL_OPCODE.TRASH_ITEM, async (event, ...args) => {
@@ -347,13 +341,8 @@ function getPlatformIcon(filename){
     return path.join(__dirname, 'app', 'assets', 'images', `${filename}.${ext}`)
 }
 
-app.on('ready', () => {
-    createWindow();
-    createMenu();
-
-    console.log('Vérification des mises à jour...');
-    autoUpdater.checkForUpdatesAndNotify();
-});
+app.on('ready', createWindow)
+app.on('ready', createMenu)
 
 app.on('window-all-closed', () => {
     // On macOS it is common for applications and their menu bar
