@@ -168,7 +168,7 @@ loading = "Chargement..."
 [js.landing.serverStatus]
 server = "SERVEUR"
 offline = "HORS LIGNE"
-players = "JOUEUR"
+players = "JOUEURS"
 
 [js.landing.systemScan]
 checking = "Analyse des informations système..."
