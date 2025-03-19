@@ -100,32 +100,50 @@ function setLaunchEnabled(val){
 
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
-    loggerLanding.info('Launching game..')
-    try {
-        const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
-        const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer())
-        if(jExe == null){
-            await asyncSystemScan(server.effectiveJavaOptions)
-        } else {
+    loggerLanding.info('Lancement du jeu..');
 
-            setLaunchDetails(Lang.queryJS('landing.launch.pleaseWait'))
-            toggleLaunchArea(true)
-            setLaunchPercentage(0, 100)
-
-            const details = await validateSelectedJvm(ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported)
-            if(details != null){
-                loggerLanding.info('Jvm Details', details)
-                await dlAsync()
-
+    // Supprimer le dossier "global_packs" avant de lancer le jeu
+    const fs = require('fs-extra');
+    const path = require('path');
+    const globalPacksPath = path.join(
+        ConfigManager.getInstanceDirectory(),
+        'cobblemonacademy-1.21.1',
+        'global_packs'
+    );
+    
+    await new Promise(resolve => {
+        fs.remove(globalPacksPath, err => {
+            if(err){
+                loggerLanding.warn('Erreur lors de la suppression du dossier global_packs', err);
             } else {
-                await asyncSystemScan(server.effectiveJavaOptions)
+                loggerLanding.info('Dossier global_packs supprimé.');
+            }
+            resolve();
+        });
+    });
+
+    try {
+        const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer());
+        const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer());
+        if(jExe == null){
+            await asyncSystemScan(server.effectiveJavaOptions);
+        } else {
+            setLaunchDetails(Lang.queryJS('landing.launch.pleaseWait'));
+            toggleLaunchArea(true);
+            setLaunchPercentage(0, 100);
+            const details = await validateSelectedJvm(ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported);
+            if(details != null){
+                loggerLanding.info('Jvm Details', details);
+                await dlAsync();
+            } else {
+                await asyncSystemScan(server.effectiveJavaOptions);
             }
         }
     } catch(err) {
-        loggerLanding.error('Unhandled error in during launch process.', err)
-        showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'))
+        loggerLanding.error('Unhandled error during launch process.', err);
+        showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'));
     }
-})
+});
 
 // Bind settings button
 document.getElementById('settingsMediaButton').onclick = async e => {
