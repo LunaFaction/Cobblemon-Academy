@@ -100,17 +100,27 @@ function setLaunchEnabled(val){
 
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
-    loggerLanding.info('Lancement du jeu..');
+    loggerLanding.info('Lancement du jeu...');
 
-    // Supprimer le dossier "global_packs" avant de lancer le jeu
     const fs = require('fs-extra');
     const path = require('path');
+
+    // Construction du chemin vers "global_packs"
     const globalPacksPath = path.join(
         ConfigManager.getInstanceDirectory(),
         'cobblemonacademy-1.21.1',
         'global_packs'
     );
-    
+
+    // Construction du chemin vers "fancymenu" qui se trouve dans "config"
+    const fancyMenuPath = path.join(
+        ConfigManager.getInstanceDirectory(),
+        'cobblemonacademy-1.21.1',
+        'config',
+        'fancymenu'
+    );
+
+    // Suppression du dossier "global_packs"
     await new Promise(resolve => {
         fs.remove(globalPacksPath, err => {
             if(err){
@@ -122,9 +132,24 @@ document.getElementById('launch_button').addEventListener('click', async e => {
         });
     });
 
+    // Suppression du dossier "fancymenu"
+    await new Promise(resolve => {
+        fs.remove(fancyMenuPath, err => {
+            if(err){
+                loggerLanding.warn('Erreur lors de la suppression du dossier fancymenu', err);
+            } else {
+                loggerLanding.info('Dossier fancymenu supprimé.');
+            }
+            resolve();
+        });
+    });
+
+    // Poursuite du lancement du jeu après la suppression des dossiers
     try {
-        const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer());
+        const distro = await DistroAPI.getDistribution();
+        const server = distro.getServerById(ConfigManager.getSelectedServer());
         const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer());
+        
         if(jExe == null){
             await asyncSystemScan(server.effectiveJavaOptions);
         } else {
@@ -144,6 +169,8 @@ document.getElementById('launch_button').addEventListener('click', async e => {
         showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'));
     }
 });
+
+
 
 // Bind settings button
 document.getElementById('settingsMediaButton').onclick = async e => {
